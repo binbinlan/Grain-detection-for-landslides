@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 #本程序用于大津算法的实现
 '''
-author: binbinlan
+author: binbinlan, marcolovati
 data: 2022.05.10
 email:787250087@qq.com
 '''
@@ -40,8 +40,7 @@ type = sys.getfilesystemencoding()
 #sys.stdout = Logger("count.txt")
 print("Hello binbinlan!\t")     #打印“hello！”，验证模块导入成功
 print('请输入比例尺')
-ratio = input('')
-ratio = float(ratio)
+ratio = float(1)
 
 #img = cv2.imread("lishi2.png")  #导入图片，图片放在程序所在目录
 img = filedialog.askopenfilename()
@@ -79,11 +78,11 @@ print('选择好阈值后按q退出')
 
 gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 cv2.namedWindow('Image',cv2.WINDOW_NORMAL)
-cv2.createTrackbar('thres','Image',0,255,on_tracebar_changed)
+cv2.createTrackbar('thres','Image',-10,10,on_tracebar_changed)
 cv2.createTrackbar('erosion','Image',0,5,on_tracebar_changed)
 cv2.createTrackbar('dilation','Image',0,5,on_tracebar_changed)
 cv2.createTrackbar('inverse','Image',0,1,on_tracebar_changed)
-cv2.createTrackbar('min_rec','Image',0,500,on_tracebar_changed)
+cv2.createTrackbar('min_rec','Image',3,30,on_tracebar_changed)
 #cv2.createTrackbar('Alpha', 'Image', 0, 300, on_tracebar_changed)
 
 
@@ -95,11 +94,24 @@ while True:
     dilation = cv2.getTrackbarPos('dilation', 'Image')
     inverse = cv2.getTrackbarPos('inverse', 'Image')
     min_rec = cv2.getTrackbarPos('min_rec', 'Image')
+    if min_rec%2 ==0:
+        min_rec+=1
     #Alpha = cv2.getTrackbarPos('Alpha', 'Image')
     k = np.ones((3,3),np.uint8)
-    gray0 = cv2.erode(gray,k,iterations=erosion)
-    gray1 = cv2.dilate(gray0,k,iterations=dilation)
-    dst = cv2.threshold(gray1,thresh,255,cv2.THRESH_BINARY)[1]
+    #
+    #gray1 = cv2.dilate(gray0,k,iterations=dilation)
+    #------------------------------------------------------------------------------------------------------------------------
+
+    #dst1=cv2.threshold(gray,0 ,255, cv2.THRESH_OTSU)
+    dst1 = cv2.dilate(cv2.erode(cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 9, thresh),k,iterations=erosion),k,iterations = dilation)
+    dst2 = cv2.dilate(cv2.erode(cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, min_rec**2, thresh),k,iterations=erosion),k,iterations = dilation)
+    dst = cv2.addWeighted(dst1, 0.5, dst2, 0.5, -1)
+    #dst = cv2.dilate(cv2.erode(dst,k,iterations=erosion),k,iterations = dilation)
+
+
+    #------------------------------------------------------------------------------------------------------------------------
+    #dst = cv2.threshold(gray1,thresh,255,cv2.THRESH_BINARY)[1]
+    
     #Alpha = Alpha * 0.01
     #img2 = cv2.convertScaleAbs(img,alpha=Alpha,beta=0)
     if inverse == 0:
@@ -110,7 +122,6 @@ while True:
         for i in range(h):
             for j in range(w):
                 dst[i][j] = 255 - dst[i][j]
-
     cv2.imshow('Image',dst)
     cv2.imshow('Src', img)
     key = cv2.waitKey(1)&0xFF
@@ -119,7 +130,17 @@ while True:
 
 cv2.destroyAllWindows()
 
-
+cv2.namedWindow('midresult',cv2.WINDOW_NORMAL)
+mask = cv2.threshold(dst,180,255,cv2.THRESH_BINARY)[1]
+mask = cv2.copyMakeBorder(mask,top=1,bottom=1,left=1,right=1,borderType=cv2.BORDER_CONSTANT,value=[255, 255, 255])
+for i in range(len(dst)):
+    for j in range(len(dst[i])):
+        if dst[i][j]== 0:
+            dst = cv2.floodFill( dst, mask, (j,i), 0, 0, 200)[1]
+            #dst = cv2.dilate(cv2.erode(cv2.floodFill( dst, mask, (j,i), 0, 0, 200)[1],k,iterations=erosion),k,iterations=dilation)
+dst = cv2.threshold(dst,0,255,cv2.THRESH_BINARY)[1]
+cv2.imshow('midresult',dst)
+input("waiting to show the fill operation")
 
 
 
