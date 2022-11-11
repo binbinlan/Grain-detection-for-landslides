@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 #本程序用于大津算法的实现
 '''
-author: binbinlan
+author: binbinlan, marcolovati
 data: 2022.05.10
 email:787250087@qq.com
 '''
@@ -40,12 +40,13 @@ type = sys.getfilesystemencoding()
 #sys.stdout = Logger("count.txt")
 print("Hello binbinlan!\t")     #打印“hello！”，验证模块导入成功
 print('请输入比例尺')
-ratio = input('')
+ratio = 1#input('')
 ratio = float(ratio)
 
 #img = cv2.imread("lishi2.png")  #导入图片，图片放在程序所在目录
 img = filedialog.askopenfilename()
 img = cv2.imread(img)
+print("the image is ", len(img),len(img[0]))
 root.destroy()
 #cv2.namedWindow("imagshow", 2)   #创建一个窗口
 #cv2.imshow('imagshow', img)    #显示原始图片
@@ -82,8 +83,8 @@ cv2.namedWindow('Image',cv2.WINDOW_NORMAL)
 cv2.createTrackbar('thres','Image',0,255,on_tracebar_changed)
 cv2.createTrackbar('erosion','Image',0,5,on_tracebar_changed)
 cv2.createTrackbar('dilation','Image',0,5,on_tracebar_changed)
-cv2.createTrackbar('inverse','Image',0,1,on_tracebar_changed)
-cv2.createTrackbar('min_rec','Image',0,500,on_tracebar_changed)
+#cv2.createTrackbar('inverse','Image',0,1,on_tracebar_changed)
+#cv2.createTrackbar('min_rec','Image',0,500,on_tracebar_changed)
 #cv2.createTrackbar('Alpha', 'Image', 0, 300, on_tracebar_changed)
 
 
@@ -93,13 +94,19 @@ while True:
     thresh = cv2.getTrackbarPos('thres','Image')
     erosion = cv2.getTrackbarPos('erosion','Image')
     dilation = cv2.getTrackbarPos('dilation', 'Image')
-    inverse = cv2.getTrackbarPos('inverse', 'Image')
-    min_rec = cv2.getTrackbarPos('min_rec', 'Image')
+    inverse = 0#cv2.getTrackbarPos('inverse', 'Image')
+    min_rec = 10#cv2.getTrackbarPos('min_rec', 'Image')
     #Alpha = cv2.getTrackbarPos('Alpha', 'Image')
-    k = np.ones((3,3),np.uint8)
-    gray0 = cv2.erode(gray,k,iterations=erosion)
-    gray1 = cv2.dilate(gray0,k,iterations=dilation)
-    dst = cv2.threshold(gray1,thresh,255,cv2.THRESH_BINARY)[1]
+    struct = 3
+    k = np.zeros((struct,struct),np.uint8)
+    k[0] = [0,1,0]
+    k[1] = [1,1,1]
+    k[2] = [0,1,0]
+    grays = [gray]
+    grays.append(cv2.erode(grays[-1],k,iterations=erosion))
+    grays.append(cv2.dilate(grays[-1],k,iterations=dilation))
+    dst = cv2.threshold(grays[-1],thresh,255,cv2.THRESH_BINARY)[1]
+    del grays
     #Alpha = Alpha * 0.01
     #img2 = cv2.convertScaleAbs(img,alpha=Alpha,beta=0)
     if inverse == 0:
@@ -192,11 +199,12 @@ test = pd.DataFrame({'count':count_list,'area':area_list,'x':x_list,'y':y_list})
 test.to_csv('statics.csv',index=False)
 
 
-
+#sys.stdout = Logger('/media/linux/harddisk1/lst/hanhan/log')
 
 
 def grain_size_dis(x):
     x_sort = sorted(x)
+    #print(x_sort)
     y_label=[]
     for enu,i in enumerate(x_sort):
         y = (enu+1)/len(x_sort)
