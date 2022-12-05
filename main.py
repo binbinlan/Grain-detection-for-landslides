@@ -222,7 +222,8 @@ bottom_hat = bottom_hat(gray,dst)
 canny = confirmedThreshold(cv2.bitwise_not(cv2.Canny(gray,50,150)),cv2.threshold(dst,200,255,cv2.THRESH_BINARY)[1])
 canny = cv2.threshold(canny,200,255,cv2.THRESH_BINARY)[1]
 surefg = findfg(canny,img, adaptive = False)
-unknown = cv2.subtract(cv2.threshold(dst,200,255,cv2.THRESH_BINARY)[1],surefg)
+surebg =  cv2.threshold(dst,0,255,cv2.THRESH_BINARY)[1]
+unknown = cv2.subtract(surebg,surefg)
 markers = cv2.connectedComponents(surefg)[1]
 markers = markers+1
 markers[unknown==255] = 0
@@ -233,14 +234,18 @@ marked[markers == -1] = [0,0,255]
 #cv2.imshow("bottom hat",bottom_hat)
 #cv2.imshow("original",img)
 #cv2.imshow("surefg",surefg)
-#cv2.imshow("Canny",canny)
-#cv2.imshow("dst",dst)
+cv2.imshow("Canny",canny)
+input("waiting to show the fill operation")
+# cv2.imshow("dst",dst)
+# cv2.imshow("surebg",surebg)
+# cv2.imshow("surefg",surefg)
+# cv2.waitKey(0)
 
 
-rectangles = False
+rectangles = True
 colorize = True
 centroids = True
-rectcolor = [0,170,255]
+rectcolor = [0,0,255]#[0,170,255]
 centroidcolor = [197,97,255]
 
 h,w = markers.shape
