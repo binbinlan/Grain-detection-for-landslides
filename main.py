@@ -237,7 +237,7 @@ root.destroy()
 #dst = cv2.adaptiveThreshold(gray,255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,101, 1)
 
 # 选择roi区域
-roi = cv2.selectROI(windowName="ferrari ducati lamborghini", img=img, showCrosshair=True, fromCenter=False)  # 选择ROI区域
+roi = cv2.selectROI(windowName="select ROI", img=img, showCrosshair=True, fromCenter=False)  # 选择ROI区域
 x, y, w, h = roi  # 将选择的roi区域转换成坐标，x,y为ROI的坐标，w,h为ROI的大小
 print(roi)  # 输出roi区域的坐标
 
