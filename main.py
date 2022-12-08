@@ -20,6 +20,7 @@ import sys
 import matplotlib.pyplot as plt
 import os
 import matplotlib.ticker as ticker
+import insidefunctions as insif
 
 
 root = tk.Tk()
@@ -91,7 +92,7 @@ def bottom_hat(input_img,doubleotsu_img,closings = 5):
 
 def findfg(borders,img,erode=0, adaptive = False):
     if erode != 0:
-        borders = cv2.erode(borders,cv2.getStructuringElement(cv2.MORPH_CROSS, (5,5)), iterations = 1)
+        borders = cv2.erode(borders,cv2.getStructuringElement(cv2.MORPH_CROSS, (erode,erode)), iterations = 1)
     distance = cleanmask(cv2.distanceTransform(borders,cv2.DIST_L2,5).astype(np.uint8),img)
     if adaptive :
         surefg = adaptiveOtsu(distance,3,0.9)
@@ -129,8 +130,34 @@ def rerangemarkers(markers,h,w):
                 markers[i,j] = 0
             else:
                 markers[i,j]=255
-    markers = cleanmask(markers,img)
     return markers.astype(np.uint8)
+
+def separate_img(insidefunc, markers, img):
+    outputlist = []
+    #markers = rerangemarkers(markers,h,w)
+    for i in range(h):
+        for j in range(w):
+            if markers[i,j] == 255:
+                temporary = np.zeros((h,w), dtype=np.uint8)
+                mask = cv2.bitwise_not(cv2.copyMakeBorder(markers.astype(np.uint8),top=1,bottom=1,left=1,right=1,borderType=cv2.BORDER_CONSTANT,value=255))
+                retval, temporary, mask2, rect = cv2.floodFill(temporary,mask,[j,i],255,10,10)
+                outputlist.append([insidefunc(temporary[rect[1]:rect[1]+rect[3],rect[0]:rect[0]+rect[2]],img[rect[1]:rect[1]+rect[3],rect[0]:rect[0]+rect[2]]),rect])
+                markers = cv2.floodFill(markers,cv2.copyMakeBorder(np.zeros((h,w),dtype=np.uint8),top=1,bottom=1,left=1,right=1,borderType=cv2.BORDER_CONSTANT,value=0),[j,i],0,10,10)[1]
+    return outputlist
+
+def reunite_img(outputlist,h,w):
+    toreunite = np.zeros((h,w),dtype=np.uint8)
+    for i in outputlist:
+        h2,w2 = i[0].shape
+        for a in range(h2):
+            for b in range(w2):
+                if i[0][a,b]==255:
+                    toreunite[a+i[1][1],b+i[1][0]]=255
+    return toreunite
+
+def FragAnalFg(func,dividing,gray):
+    outputlist = separate_img(func, dividing, gray)
+    return reunite_img(outputlist,h,w)
 
 def grain_size_dis(x):
     x_sort = sorted(x)
@@ -151,6 +178,48 @@ def grain_size_dis(x):
     plt.savefig('颗粒级配曲线.png')
     plt.show()
 
+def firstout(markers,img, rectangles = True,colorize = True,centroids = True,rectcolor = [0,170,255],centroidcolor = [197,97,255]):
+    h,w = markers.shape
+    marked = img.copy()
+    marked[markers == -1] = centroidcolor
+    markers = rerangemarkers(markers,h,w)
+    rectangular = img.copy()
+    if colorize:
+        colorful = np.zeros((h,w,3), dtype="int8")
+        counter = 0
+        colorpool = [[255,0,0],[0,255,0],[0,0,255],[255,255,0],[0,255,255],[255,0,255],[0,170,255],[0,255,200],[0,255,106],[0,140,255],[115,0,255],[255,0,166],[145,149,255],[153,255,145]]
+        colorful[:,:] = (0,0,0)  # (B, G, R) do we need this passage?
+    if centroids:
+        centrimg = marked.copy()
+        centroid_list = []
+
+    for i in range(h):
+        for j in range(w):
+            if markers[i,j] == 255:
+                temporary = np.zeros((h,w), dtype=np.uint8)
+                mask = cv2.bitwise_not(cv2.copyMakeBorder(markers.astype(np.uint8),top=1,bottom=1,left=1,right=1,borderType=cv2.BORDER_CONSTANT,value=255))
+                retval, temporary, mask2, rect = cv2.floodFill(temporary,mask,[j,i],255,10,10)
+                markers = cv2.floodFill(markers,cv2.copyMakeBorder(np.zeros((h,w),dtype=np.uint8),top=1,bottom=1,left=1,right=1,borderType=cv2.BORDER_CONSTANT,value=0),[j,i],0,10,10)[1]
+                if rectangles:
+                    rectangular = cv2.rectangle(rectangular, [rect[0],rect[1]], [rect[0]+rect[2],rect[1]+rect[3]], rectcolor, 1)
+                if colorize:
+                    colorful[temporary==255] = colorpool[counter]
+                    counter+=1
+                    if counter == len(colorpool):
+                        counter = 0
+                if centroids:
+                    subimage = temporary.copy()[rect[1]:rect[1]+rect[3],rect[0]:rect[0]+rect[2]]
+                    centroid_loc = find_centroid(subimage)
+                    centroid = [int(centroid_loc[0])+rect[0],int(centroid_loc[1])+rect[1]]
+                    centrimg = cv2.rectangle(centrimg, [centroid[0]-1,centroid[1]-1], [centroid[0]+1,centroid[1]+1], centroidcolor, 2)
+        if rectangles:
+            cv2.imshow('rectangles',rectangular)
+        if colorize:
+            cv2.imshow('colorful',colorful.astype(np.uint8))
+        if centroids:
+            cv2.imshow('centroids',centrimg.astype(np.uint8))
+
+
 type = sys.getfilesystemencoding()
 #sys.stdout = Logger("count.txt")
 print("welcome to GRADELAND! (GRAin DEtection for LANDslides)\t")     #打印“hello！”，验证模块导入成功
@@ -168,7 +237,7 @@ root.destroy()
 #dst = cv2.adaptiveThreshold(gray,255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,101, 1)
 
 # 选择roi区域
-roi = cv2.selectROI(windowName="original", img=img, showCrosshair=True, fromCenter=False)  # 选择ROI区域
+roi = cv2.selectROI(windowName="ferrari ducati lamborghini", img=img, showCrosshair=True, fromCenter=False)  # 选择ROI区域
 x, y, w, h = roi  # 将选择的roi区域转换成坐标，x,y为ROI的坐标，w,h为ROI的大小
 print(roi)  # 输出roi区域的坐标
 
@@ -218,77 +287,29 @@ if inverse == 1:
 cv2.destroyAllWindows()
 
 dst = DoubleOtsu(gray)
-bottom_hat = bottom_hat(gray,dst)
-canny = confirmedThreshold(cv2.bitwise_not(cv2.Canny(gray,50,150)),cv2.threshold(dst,200,255,cv2.THRESH_BINARY)[1])
-canny = cv2.threshold(canny,200,255,cv2.THRESH_BINARY)[1]
-surefg = findfg(canny,img, adaptive = False)
-surebg =  cv2.threshold(dst,0,255,cv2.THRESH_BINARY)[1]
+#bottom_hat = bottom_hat(gray,dst)
+#canny = confirmedThreshold(cv2.bitwise_not(cv2.Canny(gray,50,150)),cv2.threshold(dst,200,255,cv2.THRESH_BINARY)[1])
+#canny = cv2.threshold(canny,200,255,cv2.THRESH_BINARY)[1]
+#surefg = findfg(canny,img, adaptive = False)
+
+surefg = FragAnalFg(insif.DistanceBasedInside,cv2.threshold(dst,200,255,cv2.THRESH_BINARY)[1],gray)
+#surefg = FragAnalFg(insif.DistanceBasedInside,cv2.threshold(cv2.addWeighted(dst, 0.5, canny, 0.5, 0),200,255,cv2.THRESH_BINARY)[1],gray) #adds Canny 
+surebg =  cleanmask(cv2.threshold(dst,0,255,cv2.THRESH_BINARY)[1],img)
 unknown = cv2.subtract(surebg,surefg)
 markers = cv2.connectedComponents(surefg)[1]
 markers = markers+1
 markers[unknown==255] = 0
 markers = cv2.watershed(img,markers)
-marked = img.copy()
-marked[markers == -1] = [0,0,255]
 
-#cv2.imshow("bottom hat",bottom_hat)
+
 #cv2.imshow("original",img)
 #cv2.imshow("surefg",surefg)
-cv2.imshow("Canny",canny)
-input("waiting to show the fill operation")
 # cv2.imshow("dst",dst)
-# cv2.imshow("surebg",surebg)
+#cv2.imshow("surebg",surebg)
 # cv2.imshow("surefg",surefg)
 # cv2.waitKey(0)
 
-
-rectangles = True
-colorize = True
-centroids = True
-rectcolor = [0,0,255]#[0,170,255]
-centroidcolor = [197,97,255]
-
-h,w = markers.shape
-
-
-markers = rerangemarkers(markers,h,w)
-
-rectangular = img.copy()
-if colorize:
-    colorful = np.zeros((h,w,3), dtype="int8")
-    counter = 0
-    colorpool = [[255,0,0],[0,255,0],[0,0,255],[255,255,0],[0,255,255],[255,0,255],[0,170,255],[0,255,200],[0,255,106],[0,140,255],[115,0,255],[255,0,166],[145,149,255],[153,255,145]]
-    colorful[:,:] = (0,0,0)  # (B, G, R)
-if centroids:
-    centrimg = marked.copy()
-    centroid_list = []
-
-for i in range(h):
-    for j in range(w):
-        if markers[i,j] == 255:
-            temporary = np.zeros((h,w), dtype=np.uint8)
-            mask = cv2.bitwise_not(cv2.copyMakeBorder(markers.astype(np.uint8),top=1,bottom=1,left=1,right=1,borderType=cv2.BORDER_CONSTANT,value=255))
-            retval, temporary, mask2, rect = cv2.floodFill(temporary,mask,[j,i],255,10,10)
-            markers = cv2.floodFill(markers,cv2.copyMakeBorder(np.zeros((h,w),dtype=np.uint8),top=1,bottom=1,left=1,right=1,borderType=cv2.BORDER_CONSTANT,value=0),[j,i],0,10,10)[1]
-            if rectangles:
-                rectangular = cv2.rectangle(rectangular, [rect[0],rect[1]], [rect[0]+rect[2],rect[1]+rect[3]], rectcolor, 1)
-            if colorize:
-                colorful[temporary==255] = colorpool[counter]
-                counter+=1
-                if counter == len(colorpool):
-                    counter = 0
-            if centroids:
-                subimage = temporary.copy()[rect[1]:rect[1]+rect[3],rect[0]:rect[0]+rect[2]]
-                centroid_loc = find_centroid(subimage)
-                centroid = [int(centroid_loc[0])+rect[0],int(centroid_loc[1])+rect[1]]
-                centrimg = cv2.rectangle(centrimg, [centroid[0]-1,centroid[1]-1], [centroid[0]+1,centroid[1]+1], centroidcolor, 2)
-
-if rectangles:
-    cv2.imshow('rectangles',rectangular)
-if colorize:
-    cv2.imshow('colorful',colorful.astype(np.uint8))
-if centroids:
-    cv2.imshow('centroids',centrimg.astype(np.uint8))
-
+firstout(markers,img)
+#firstout(rerangemarkers(markers,h,w),img)
 input("waiting to show the fill operation")
 cv2.destroyAllWindows()
