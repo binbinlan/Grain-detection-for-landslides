@@ -286,6 +286,11 @@ def merge_split(window_name,markers,surefg,surebg,img):
                 return
 
     cv2.setMouseCallback(window_name, mouse_callback)
+    instructions = np.zeros((200,650),dtype=np.uint8)
+    cv2.putText(instructions, "left click 2 points and press enter to merge them in a single area ", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+    cv2.putText(instructions, "right click 2 points and press enter to split them into 2 separate areas", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+    cv2.putText(instructions, "press esc when done", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+    cv2.imshow("instructions",instructions)
     toMerge = [[]]
     toSplit = [[]]
     while True:
@@ -337,19 +342,10 @@ def merge_split(window_name,markers,surefg,surebg,img):
     cv2.destroyAllWindows()
     return surefg,unknown,markers,colored
 
-def show_popup(title,innertext,buttontext = "Close"):
-    popup_window = tk.Tk()
-    popup_window.wm_title(title)
-    label = tk.Label(popup_window, text=innertext)
-    label.pack(side="top", fill="x", pady=10)
-    button = tk.Button(popup_window, text=buttontext, command= popup_window.destroy)
-    button.pack()
-    popup_window.mainloop()
-
 type = sys.getfilesystemencoding()
 
 ratio = float(1)
-show_popup("你好！","welcome to GRADELAND! \n (GRAin DEtection for LANDslides)","开始！")
+
 pathfile = filedialog.askopenfilename()
 basename = os.path.splitext(pathfile)[0]
 img = cv2.imread(pathfile)
@@ -365,7 +361,6 @@ if roi != (0, 0, 0, 0):
     cv2.imshow('crop', img)  # 显示roi区域
     # cv2.imwrite('crop.jpg', crop)  # 保存roi区域
     # print('Saved!')  # 输出保存成功
-
 cv2.destroyAllWindows() 
 
 #print('图像比例尺是',ratio)
@@ -399,7 +394,9 @@ if inverse == 1:
         gray = cv2.bitwise_not(gray)
 
 cv2.destroyAllWindows()
-
+loadpic = cv2.imread(os.path.join(os.path.dirname(os.path.abspath(__file__)),"loading.png"))
+cv2.imshow("loading",loadpic)
+cv2.waitKey(1)
 start = time.time()
 dst = DoubleOtsu(gray)
 #bottom_hat = bottom_hat(gray,dst)
@@ -415,6 +412,7 @@ markers[unknown==255] = 0
 markers = cv2.watershed(img,markers)
 end = time.time()
 print("entire process lasted", end-start)
+cv2.destroyAllWindows()
 
-surefg,unknown,markers,colored = merge_split("prova",markers,surefg,surebg,img)
+surefg,unknown,markers,colored = merge_split("manual correction",markers,surefg,surebg,img)
 exportGSD(markers,img, basename)
